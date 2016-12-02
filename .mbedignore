@@ -1,0 +1,4 @@
+templates/*
+tests/*
+docs/*
+doxygen/*

@@ -1,0 +1,51 @@
+Lists of third-party dependencies.
+
+//-----//
+
+mbed-trace - version v1.2.1
+Copyright (c) 2014-2015 ARM Limited
+
+mbed-trace is distributed under the terms and conditions of the Apache 2.0 license (https://github.com/ARMmbed/mbed-trace/blob/master/LICENSE).
+You may download the source code on the following website: https://github.com/ARMmbed/mbed-trace
+
+//-----//
+liveobjects_mbedtls_custom_config.h
+mbedtls_mbed_client_config.h 
+Copyright (C) 2006-2016, ARM Limited, All Rights Reserved
+
+mbedtls_mbed_client_config is distributed under the terms and conditions of the Apache 2.0 license.
+You may download the source code on the following website: https://github.com/ARMmbed/mbed-os-example-client
+
+//-----//
+
+mbedtls - version v2.4.0
+Copyright (c) 2014-2015 ARM Limited
+
+mbedtls is distributed under the terms and conditions of the Apache 2.0 license (https://github.com/ARMmbed/mbedtls/blob/development/apache-2.0.txt).
+You may download the source code on the following website: https://github.com/ARMmbed/mbedtls
+
+//-----//
+
+mbed-os - v5.2.0
+Copyright (c) 2014-2015 ARM Limited
+
+mbed-os is distributed under the terms and conditions of the Apache 2.0 license (https://github.com/ARMmbed/mbedtls/blob/development/apache-https://github.com/ARMmbed/mbed-os/blob/master/LICENSE)
+You may download the source code on the following website: https://github.com/ARMmbed/mbed-os
+
+//-----//
+
+paho.mqtt.c - v1.1.0
+Copyright (c) 2009, 2014 IBM Corp.
+
+paho.mqtt.c is distributed under the terms and conditions of the Eclipse Public License v1.0 license (https://github.com/eclipse/paho.mqtt.c/blob/master/epl-v10).
+You may download the source code on the following website: https://github.com/eclipse/paho.mqtt.c
+
+//-----//
+
+jsmn - r5167da2fcc4e
+Copyright (c) 2010 Serge A. Zaitsev
+
+jsmn is distributed under the terms and conditions of the MIT license (https://github.com/zserge/jsmn/blob/master/LICENSE).
+You may download the source code on the following website: https://github.com/zserge/jsmn
+
+//-----//
