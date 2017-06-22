@@ -10,8 +10,18 @@
   * @file  LiveObjectsClient_Config.h
   * @brief Default configuration for LiveObjects Client library
   *
+  * To implement or not a Live Objects Feature, set to 1 or 0 (by default 1, it is impelmented):
+  * - LOC_FEATURE_MBEDTLS      SSL/TLS feature
+  * - LOC_FEATURE_LO_STATUS    'Status/Info' feature.
+  * - LOC_FEATURE_LO_PARAMS    'Configuration Parameters' feature.
+  * - LOC_FEATURE_LO_DATA      'Collected Data' feature.
+  * - LOC_FEATURE_LO_COMMANDS  'Commands' feature.
+  * - LOC_FEATURE_LO_RESOURCES 'Resources' feature.
+  *
+  * Tunable parameters:
   * - LOC_SERV_TIMEOUT  Connection Timeout in milliseconds (default 20 seconds)
   * - LOC_MQTT_API_KEEPALIVEINTERVAL_SEC  Period of MQTT Keepalive message (default: 30 seconds)
+  * - LOC_MQTT_DEF_COMMAND_TIMEOUT Timeout in milliseconds to wait for a MQTT ACK/NACK response after sending MQTT request
   * - LOC_MQTT_DEF_SND_SZ  Size (in bytes) of static MQTT buffer used to send a MQTT message (default: 2 K bytes)
   * - LOC_MQTT_DEF_RCV_SZ  Size (in bytes) of static MQTT buffer used to receive a MQTT message (default: 2 K bytes)
   * - LOC_MQTT_DEF_TOPIC_NAME_SZ  Max Size (in bytes) of MQTT Topic name (default: 40 bytes)
@@ -31,6 +41,10 @@
 
 /* User can overwrite parameters */
 #include "liveobjects_dev_config.h"
+
+#ifndef LOC_MQTT_DUMP_MSG
+#define LOC_MQTT_DUMP_MSG                    3
+#endif
 
 #ifndef LOC_FEATURE_MBEDTLS
 #define LOC_FEATURE_MBEDTLS                  1
@@ -63,6 +77,10 @@
 /* MQTT Default parameters */
 #ifndef LOC_MQTT_API_KEEPALIVEINTERVAL_SEC
 #define LOC_MQTT_API_KEEPALIVEINTERVAL_SEC   30
+#endif
+
+#ifndef LOC_MQTT_DEF_COMMAND_TIMEOUT
+#define LOC_MQTT_DEF_COMMAND_TIMEOUT         5000
 #endif
 
 #ifndef LOC_MQTT_DEF_SND_SZ

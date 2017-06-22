@@ -134,7 +134,7 @@ typedef struct {
     const LiveObjectsD_Resource_t*  ursc_obj_ptr;       ///< Resource to update
     char                ursc_vers_old[10];              ///< Old version sent by the LiveObbject platform
     char                ursc_vers_new[10];              ///< New version sent by the LiveObbject platform
-    char                ursc_md5[16];                   ///< MD5
+    unsigned char       ursc_md5[16];                   ///< MD5
     uint32_t            ursc_size;                      ///< Size of the resource to be transfered in device
     char                ursc_uri[80];                   ///<< URI to get the resource
 

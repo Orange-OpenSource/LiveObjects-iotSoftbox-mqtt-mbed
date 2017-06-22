@@ -20,10 +20,14 @@
 extern "C" {
 #endif
 
+
+#include "liveobjects-sys/socket_defs.h"
+
 typedef struct Network Network;
 
 struct Network{
-	void* sock_hdl;
+	socketHandle_t   my_socket;
+
     int (*mqttread)  (Network*, unsigned char*, int, int);
     int (*mqttwrite) (Network*, unsigned char*, int, int);
 

@@ -15,6 +15,7 @@
 #define __LiveObjectsClient_Paltform_H_
 
 #include <inttypes.h>
+#include <stdlib.h>
 
 #ifndef PRIu32
 #define PRIu32    "u"
@@ -31,5 +32,11 @@
 #ifndef PRIi64
 #define PRIi64    "ld"
 #endif
+
+#define MEM_ALLOC(len)        ((char*) malloc(len))
+
+#define MEM_FREE(p)            free((void*)(p))
+
+#define WAIT_MS(dt_ms)         wait_ms(dt_ms)
 
 #endif /* __LiveObjectsClient_Paltform_H_ */

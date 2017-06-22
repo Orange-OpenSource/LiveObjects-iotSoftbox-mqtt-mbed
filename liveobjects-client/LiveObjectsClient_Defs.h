@@ -138,7 +138,6 @@ typedef struct {
 } LiveObjectsD_CommandRequestBlock_t;
 
 
-
 /**
  * @brief  LiveObjects Client State
  */
@@ -146,7 +145,7 @@ typedef enum {
     CSTATE_DISCONNECTED = 0,  ///< Client is disconnected to the  LiveObjects platform
     CSTATE_CONNECTING,        ///< Client is trying to establish a connection to the LiveObjects platform
     CSTATE_CONNECTED,         ///< Client is connected to the  LiveObjects platform
-	CSTATE_DOWN               ///< Client Thread is down or stopped
+    CSTATE_DOWN               ///< Client Thread is down or stopped
 } LiveObjectsD_State_t;
 
 /**

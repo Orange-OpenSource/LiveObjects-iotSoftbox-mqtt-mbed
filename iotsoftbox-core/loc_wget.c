@@ -32,8 +32,8 @@
 #define HTTP_HD_CONTENT_RANGE        "Content-Range:"
 #define HTTP_HD_APPLICATION_CONTEXT  "X-Application-Context:"
 
-static void*  _wget_sock_hdl;
-static char   _wget_buffer[400];
+static socketHandle_t  _wget_sock_hdl;
+static char            _wget_buffer[400];
 
 //---------------------------------------------------------------------------------
 //
@@ -212,8 +212,8 @@ int LO_wget_start(const char* uri, uint32_t rsc_size, uint32_t rsc_offset)
     }
 
     LOTRACE_DBG("Connect to %s:%d ....", host_name, host_port);
-    _wget_sock_hdl = LO_sock_connect(2, host_name, host_port);
-    if (_wget_sock_hdl == NULL) {
+    ret = LO_sock_connect(2, host_name, host_port, &_wget_sock_hdl);
+    if (ret < 0) {
         LOTRACE_ERR("Error while connecting to %s:%d", host_name, host_port);
         return -1;
     }
@@ -234,7 +234,7 @@ int LO_wget_data(char* pData, int len)
 {
     int ret;
 
-    if (_wget_sock_hdl == NULL) {
+    if (_wget_sock_hdl == SOCKETHANDLE_NULL) {
         LOTRACE_ERR("LO_wget_data(len=%d) -> NO SOCKET !!!", len);
         return -1;
     }

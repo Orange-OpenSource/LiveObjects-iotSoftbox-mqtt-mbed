@@ -22,6 +22,16 @@
 extern "C" {
 #endif
 
+typedef enum {
+    LOTRACE_LEVEL_NONE = 0,
+    LOTRACE_LEVEL_ERR = 1,
+    LOTRACE_LEVEL_WARN,
+    LOTRACE_LEVEL_INF,
+    LOTRACE_LEVEL_DBG,
+    LOTRACE_LEVEL_VERBOSE,
+    LOTRACE_LEVEL_MAX
+} lotrace_level_t;
+
 //==================================================================
 /**
  * * \addtogroup Init  Initialization
@@ -38,6 +48,14 @@ extern "C" {
  * @return 0 if successful, otherwise a negative value when occur occurs.
  */
 int LiveObjectsClient_CheckApiKey(const char* apikey);
+
+ /**
+  * @brief Init the Debug Trace Module with a given trace level
+  *
+  * @param level       Log level.
+  */
+ void LiveObjectsClient_InitDbgTrace(lotrace_level_t level);
+
 
 /**
  * @brief Initialize the LiveObjects Client Instance (only one instance on board)
@@ -74,6 +92,29 @@ int LiveObjectsClient_SetDevId(const char* dev_id);
  */
 int LiveObjectsClient_SetNameSpace(const char* name_space);
 
+/**
+ * @brief Call to resolve the domain name of Live Objects platform defined by LOC_SERV_IP_ADDRESS.
+ *   This should be called :
+ *    - when the IP network is up
+ *    - and before the LiveObjectsClient_Connect() function.
+ *
+ * @return 0 if successful, otherwise a negative value when occur occurs.
+ */
+int LiveObjectsClient_DnsResolve(void);
+
+/**
+ * @brief Use to add  a couple (Domain name, IP address).
+ *   This should be called before the LiveObjectsClient_Connect() function.
+ *
+ * @param domain_name       Domain name (FQDN).
+ * @param ip_address        IP (v4) Address.
+ *
+ * @note If IPV4 Address is NULL, the DNS resolver will be called to resolve the IP address.
+ *
+ * @return 0 if successful, otherwise a negative value when occur occurs.
+ */
+int LiveObjectsClient_DnsSetFQDN(const char* domain_name, const char* ip_address);
+
 /* @} group end : Init */
 
 //==================================================================
@@ -91,8 +132,18 @@ int LiveObjectsClient_SetNameSpace(const char* name_space);
  *
  * @param level       Log level.
  */
-void LiveObjectsClient_SetDbgLevel(uint16_t level);
+void LiveObjectsClient_SetDbgLevel(lotrace_level_t level);
 
+
+/**
+ * @brief Set mode to dump the published MQTT messages
+ *
+ * @param mode     MQTT Msg Dump Mode
+ *                  0 : Disable
+ *                  1 : Enable, text format
+ *                  3 : ENable, test + hexa format.
+ */
+void  LiveObjectsClient_SetDbgMsgDump(uint16_t mode);
 
 /**
  * @brief Define a set of user data as the LiveObjects IoT Configuration parameters.

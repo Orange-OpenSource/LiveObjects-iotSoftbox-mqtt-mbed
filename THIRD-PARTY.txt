@@ -42,7 +42,7 @@ You may download the source code on the following website: https://github.com/ec
 
 //-----//
 
-jsmn - r5167da2fcc4e
+jsmn - (the latest, at least #1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9)
 Copyright (c) 2010 Serge A. Zaitsev
 
 jsmn is distributed under the terms and conditions of the MIT license (https://github.com/zserge/jsmn/blob/master/LICENSE).

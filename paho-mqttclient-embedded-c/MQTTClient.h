@@ -19,7 +19,7 @@
 #define __MQTT_CLIENT_C_
 
 #include "liveobjects-sys/mqtt_network_interface.h"
-#include "paho-mqttclient-c/timer_interface.h"
+#include "paho-mqttclient-embedded-c/timer_interface.h"
 
 #if defined(__cplusplus)
  extern "C" {

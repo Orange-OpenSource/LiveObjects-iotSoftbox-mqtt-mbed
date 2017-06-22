@@ -14,7 +14,6 @@
 #ifndef __LiveObjectClient_toolbox_H_
 #define __LiveObjectClient_toolbox_H_
 
-
 #include <stdint.h>
 
 

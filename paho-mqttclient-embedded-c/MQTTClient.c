@@ -21,7 +21,7 @@
  * Note: keep the source code as it (dont't suppress /replace tab, end space, ..)
  */
 
-#include "paho-mqttclient-c/MQTTClient.h"
+#include "paho-mqttclient-embedded-c/MQTTClient.h"
 
 // LiveObjects Client: Add some logs  (search pattern LOTRACE_ ) ...
 #include "liveobjects-sys/loc_trace.h"
@@ -426,6 +426,7 @@ int MQTTSubscribe(MQTTClient* c, const char* topicFilter, enum QoS qos, messageH
     int rc = FAILURE;  
     Timer timer;
     int len = 0;
+    int qos_tab = (int)qos;  //!! Patch OAB for Arduino
     MQTTString topic = MQTTString_initializer;
     topic.cstring = (char *)topicFilter;
     
@@ -438,7 +439,7 @@ int MQTTSubscribe(MQTTClient* c, const char* topicFilter, enum QoS qos, messageH
     TimerInit(&timer);
     TimerCountdownMS(&timer, c->command_timeout_ms);
     
-    len = MQTTSerialize_subscribe(c->buf, c->buf_size, 0, getNextPacketId(c), 1, &topic, (int*)&qos);
+    len = MQTTSerialize_subscribe(c->buf, c->buf_size, 0, getNextPacketId(c), 1, &topic, (int*)&qos_tab);
     if (len <= 0)
         goto exit;
     if ((rc = sendPacket(c, len, &timer)) != SUCCESS) // send the subscribe packet

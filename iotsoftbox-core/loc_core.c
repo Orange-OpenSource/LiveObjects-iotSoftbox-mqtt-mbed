@@ -13,9 +13,8 @@
 
 #include "liveobjects_dev_params.h"
 
-#include "MQTTClient.h"
+#include "paho-mqttclient-embedded-c/MQTTClient.h"
 
-#include "netw_wrapper.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -25,6 +24,8 @@
 #include "liveobjects-client/LiveObjectsClient_Core.h"
 #include "liveobjects-client/LiveObjectsClient_Security.h"
 #include "liveobjects-client/LiveObjectsClient_Toolbox.h"
+
+#include "netw_wrapper.h"
 
 #include "loc_json_api.h"
 #include "loc_msg.h"
@@ -38,12 +39,15 @@
 //---------------------------------------------------------------------------------
 // Definitions
 // -----------
-#define DUMP_MQTT_MSG
 
 #define LOC_MQTT_USER_NAME            "json+device"
 
+#ifndef LOC_SERV_HOST_NAME
+#define LOC_SERV_HOST_NAME           "liveobjects.orange-business.com"
+#endif
+
 #ifndef LOC_SERV_IP_ADDRESS
-#define LOC_SERV_IP_ADDRESS           "liveobjects.orange-business.com"
+#define LOC_SERV_IP_ADDRESS           LOC_SERV_HOST_NAME
 #endif
 
 #ifndef LOC_SERV_PORT
@@ -192,7 +196,7 @@ static LOMSetOfUpdatedResource_t  _LOClient_Set_UpdatedRsc;
 
 static int LOCC_MqttPublish(enum QoS qos, const char* topic_name, const char* payload_data);
 
-#ifdef DUMP_MQTT_MSG
+#if LOC_MQTT_DUMP_MSG
 
 static uint16_t _LOClient_dump_mqtt_publish = 0;
 
@@ -201,18 +205,18 @@ static uint16_t _LOClient_dump_mqtt_publish = 0;
 
 //---------------------------------------------------------------------------------
 //
-void mqtt_dump_hex(const unsigned char* p_buf, int len)
+static void mqtt_dump_hex(const unsigned char* p_buf, int len)
 {
     int i;
     for(i=0;i<len;i++) {
-        printf("%02X ", p_buf[i]);
+        LOTRACE_PRINTF("%02X ", p_buf[i]);
     }
-    printf("\n");
+    LOTRACE_PRINTF("\n");
 }
 
 //---------------------------------------------------------------------------------
 //
-void mqtt_dump_msg(const unsigned char* p_buf)
+static void mqtt_dump_msg(const unsigned char* p_buf)
 {
     int i;
     const unsigned char* pc = p_buf;
@@ -225,10 +229,6 @@ void mqtt_dump_msg(const unsigned char* p_buf)
 
     header.byte = *pc++;
 
-    printf("\n---\nHEADER  = %3d  x%02X ", header.byte , header.byte);
-    printf(" (type= %d, qos= %d, dup= %d, retain = %d)\n",
-            header.bits.type, header.bits.qos, header.bits.dup, header.bits.retain);
-
     remain_len = 0;
     do {
         digit = *pc++;
@@ -237,34 +237,49 @@ void mqtt_dump_msg(const unsigned char* p_buf)
         header_len++;
     } while ((digit&0x80) != 0);
 
-    printf("LEN     = %3d  x%04X (header_len=%d)\n", remain_len, remain_len, header_len);
+    if (_LOClient_dump_mqtt_publish & 0x01) {
+        LOTRACE_PRINTF("\n---\nHEADER  = %3d  x%02X ", header.byte , header.byte);
+        LOTRACE_PRINTF(" (type= %d, qos= %d, dup= %d, retain = %d)\n",
+                header.bits.type, header.bits.qos, header.bits.dup, header.bits.retain);
+        LOTRACE_PRINTF("LEN     = %3d  x%04X (header_len=%d)\n", remain_len, remain_len, header_len);
 
-    if (header.bits.type == PUBLISH) {
-        int topic_len  = 256*(*pc) + (*(pc+1));
-        pc += 2;
+        if (header.bits.type == PUBLISH) {
+            int topic_len  = 256*(*pc) + (*(pc+1));
+            pc += 2;
 
-        printf("TOPIC(len=%2d): '", topic_len );
-        for(i=0;i<topic_len;i++) {
-            printf("%c", *pc++ );
+            LOTRACE_PRINTF("TOPIC(len=%2d): '", topic_len );
+            for(i=0;i<topic_len;i++) {
+                LOTRACE_PRINTF("%c", *pc++ );
+            }
+            LOTRACE_PRINTF("'\n");
+
+            payload_len = remain_len - topic_len - 2;
+
+            LOTRACE_PRINTF("PAYLOAD(%3d) : '",payload_len );
+            for(i=0;i<payload_len;i++) {
+                LOTRACE_PRINTF("%c", *pc++ );
+            }
+            LOTRACE_PRINTF("'\n");
         }
-        printf("'\n");
-
-        payload_len = remain_len - topic_len - 2;
-
-        printf("PAYLOAD(%3d) : '",payload_len );
-        for(i=0;i<payload_len;i++) {
-            printf("%c", *pc++ );
-        }
-        printf("'\n");
     }
 
-    remain_len += header_len;
-    if (_LOClient_dump_mqtt_publish > 1) {
-        printf("MSG_LEN = %3d\n", remain_len);
+    if (_LOClient_dump_mqtt_publish & 0x02) {
+        remain_len += header_len;
+        LOTRACE_PRINTF("MSG_LEN = %3d\n", remain_len);
         mqtt_dump_hex(p_buf, remain_len);
     }
 }
-#endif // DUMP_MQTT_MSG
+
+#if (LOC_MQTT_DUMP_MSG & 0x02)
+void LOCC_mqtt_dump_msg(const unsigned char* p_buf)
+{
+    if (_LOClient_dump_mqtt_publish & 0x08) {
+        mqtt_dump_msg(p_buf);
+    }
+}
+#endif
+
+#endif // LOC_MQTT_DUMP_MSG
 
 //=================================================================================
 // Messages Queue
@@ -333,7 +348,7 @@ static void LOCC_mqPurge(void)
         const char* p_msg = _LOClient_queue.msg[_LOClient_queue.iread];
         if (p_msg) {
             LOTRACE_DBG("LOCC_mqPurge: MEM_FREE msg[%d]=%p x%x",_LOClient_queue.iread, p_msg, *p_msg);
-            free(p_msg);
+            MEM_FREE(p_msg);
         }
         else {
             LOTRACE_ERR("LOCC_mqPurge: msg[%d]=NULL !!!!",_LOClient_queue.iread);
@@ -345,8 +360,6 @@ static void LOCC_mqPurge(void)
     memset(_LOClient_queue.msg, 0, sizeof(_LOClient_queue.msg));
     MQ_MUTEX_UNLOCK();
 }
-
-
 
 
 //=================================================================================
@@ -456,10 +469,10 @@ static int LOCC_MqttConnect(void)
     connectData.username.cstring = LOC_MQTT_USER_NAME;
     connectData.password.cstring = LOC_CLIENT_DEV_API_KEY;
 
-    //connectData.will.topicName.cstring = (char*)pParams->will.pTopicName;
-    //connectData.will.message.cstring = (char*)pParams->will.pMessage;
-    //connectData.will.qos = pParams->will.qos;
-    //connectData.will.retained = pParams->will.isRetained;
+    //connectData.will.topicName.cstring = ...;
+    //connectData.will.message.cstring = ...;
+    //connectData.will.qos = ...;
+    //connectData.will.retained = ...;
 
     connectData.keepAliveInterval = LOC_MQTT_API_KEEPALIVEINTERVAL_SEC;
 
@@ -495,8 +508,8 @@ static int LOCC_MqttPublish(enum QoS qos, const char* topic_name, const char* pa
         LOTRACE_ERR("MQTTPublish failed, rc=%d", rc);
     }
 
-#ifdef DUMP_MQTT_MSG
-    if (_LOClient_dump_mqtt_publish)
+#if (LOC_MQTT_DUMP_MSG & 0x01)
+    if (_LOClient_dump_mqtt_publish & 0x04)
         mqtt_dump_msg(_LOClient_mqtt_buffer_snd);
 #endif
 
@@ -517,7 +530,7 @@ static int LOCC_SubscibeTopic(int i)
             LOTRACE_ERR("Subscribe[%d] %s  - NO CALLBACK FUNCTION !!!", i, _LOClient_TopicSub[i].topicName);
             return 0;
         }
-        LOTRACE_WARN("Subscribe[%d] %s , granted_os=%d .... ", i, _LOClient_TopicSub[i].topicName, QOS0);
+        LOTRACE_WARN("Subscribe[%d] %s , granted_qos=%d .... ", i, _LOClient_TopicSub[i].topicName, QOS0);
         rc = MQTTSubscribe(&_LOClient_mqtt_ctx, _LOClient_TopicSub[i].topicName, QOS0, _LOClient_TopicSub[i].callback);
         if (rc < 0)  {
             LOTRACE_ERR("Subscribe[%d] %s failed, rc=%d", i, _LOClient_TopicSub[i].topicName,  rc);
@@ -526,7 +539,7 @@ static int LOCC_SubscibeTopic(int i)
             LOTRACE_ERR("Subscribe[%d] %s failed, rc=x%x", i, _LOClient_TopicSub[i].topicName,  rc);
         }
         else {
-            LOTRACE_WARN("Subscribe[%d] %s , qos=%d (granted_os=%d)", i, _LOClient_TopicSub[i].topicName,  rc, QOS0);
+            LOTRACE_WARN("Subscribe[%d] %s , qos=%d (granted_qos=%d)", i, _LOClient_TopicSub[i].topicName,  rc, QOS0);
             _LOClient_TopicSub[i].subscribed = 1;
         }
     }
@@ -760,10 +773,14 @@ static int LOCC_processConfig(void)
                 if (rc == 0) {
                     _LOClient_Set_Params.pushtoLOServer = 0;
                     if (_LOClient_cfg_first) {
+#if 1
                         rc = LOCC_SubscibeTopic(TOPIC_CFG_UPD);
                         if (rc == 0) {
                             _LOClient_cfg_first = 0;
                         }
+#else
+                        _LOClient_cfg_first = 0;
+#endif
                     }
                 }
             }
@@ -841,7 +858,7 @@ static void LOCC_processPendingMesssage()
             LOTRACE_ERR("LOCC_processPendingMesssage: ERROR -  UNKNOW msg %p x%x", p_msg, *p_msg);
         }
         LOTRACE_DBG("LOCC_processPendingMesssage: MEM_FREE msg %p x%x", p_msg, *p_msg);
-        free(p_msg);
+        MEM_FREE(p_msg);
     }
 }
 
@@ -944,7 +961,7 @@ static void LOCC_connectOK( void )
     LOTRACE_DBG("Device Resources, ret=%d", ret);
 #endif
 
-#if LOC_FEATURE_LO_PARAMS
+#if LOC_FEATURE_LO_PARAMS_1
     LOTRACE_DBG("Device Config ....");
     ret = LOCC_processConfig();
     LOTRACE_DBG("Device Config, ret=%d", ret);
@@ -965,10 +982,27 @@ static void LOCC_connectOK( void )
 //---------------------------------------------------------------------------------
 //
 
-void  LiveObjectsClient_SetDbgLevel(uint16_t level)
+//---------------------------------------------------------------------------------
+//
+void  LiveObjectsClient_InitDbgTrace(lotrace_level_t level)
 {
-#ifdef DUMP_MQTT_MSG
-    _LOClient_dump_mqtt_publish = level;
+    LOTRACE_INIT(level);
+}
+
+
+//---------------------------------------------------------------------------------
+//
+void  LiveObjectsClient_SetDbgLevel(lotrace_level_t level)
+{
+    LOTRACE_LEVEL(level);
+}
+
+//---------------------------------------------------------------------------------
+//
+void  LiveObjectsClient_SetDbgMsgDump(uint16_t mode)
+{
+#if LOC_MQTT_DUMP_MSG
+    _LOClient_dump_mqtt_publish = mode;
 #endif
 }
 
@@ -1028,7 +1062,7 @@ int  LiveObjectsClient_Init(void* net_iface_handler)
     }
 
     MQTTClientInit(&_LOClient_mqtt_ctx, &_LOClient_MQTTClient_network,
-            5000,
+            LOC_MQTT_DEF_COMMAND_TIMEOUT,
             _LOClient_mqtt_buffer_snd, LOC_MQTT_DEF_SND_SZ,
             _LOClient_mqtt_buffer_rcv, LOC_MQTT_DEF_RCV_SZ);
 
@@ -1076,6 +1110,39 @@ int  LiveObjectsClient_SetNameSpace(const char* name_space)
     }
     LOTRACE_WARN("name_space=\"%s\"", _LOClient_dev_name_space);
     return 0;
+}
+
+
+//---------------------------------------------------------------------------------
+//
+int LO_sock_dnsSetFQDN(const char* full_name, const char* ip_address);
+
+int LiveObjectsClient_DnsSetFQDN(const char* full_name, const char* ip_address)
+{
+    if ((full_name == NULL) || (*full_name == 0)) {
+        LOTRACE_ERR("LiveObjectsClient_DnsSetFQDN: ERROR - Invalid parameter ");
+        return -1;
+    }
+    return LO_sock_dnsSetFQDN(full_name, ip_address);
+}
+
+int LiveObjectsClient_DnsResolve(void)
+{
+    int ret;
+    const char* ip = LOC_SERV_IP_ADDRESS;
+    if ((*ip >= '0') && (*ip <= '9')) {
+        LOTRACE_INF("LiveObjectsClient_DnsResolve: ip=%s (fqdn=%s) ", ip , LOC_SERV_HOST_NAME);
+        ret = LO_sock_dnsSetFQDN(LOC_SERV_HOST_NAME, ip);
+        if (ret < 0)  LOTRACE_ERR("ERROR returned by LO_sock_dnsSetFQDN(%s,%s)", LOC_SERV_HOST_NAME, ip);
+    }
+    else {
+        LOTRACE_INF("LiveObjectsClient_DnsResolve: ip=%s => Call DNS Resolver ...", ip);;
+        ret = LO_sock_dnsSetFQDN(ip, NULL);
+        if (ret < 0)  LOTRACE_ERR("ERROR returned by LO_sock_dnsSetFQDN(%s,NULL)", ip);
+    }
+
+    if (ret > 0)  LOTRACE_INF("LiveObjectsClient_DnsResolve: Would blocked");
+    return ret;
 }
 
 //---------------------------------------------------------------------------------
@@ -1369,7 +1436,7 @@ int  LiveObjectsClient_PushResources(void)
                 return 0;
             }
             LOTRACE_ERR("LiveObjectsClient_PushStatus: ERROR to put in queue - MEM_FREE %p x%x", p_msg, *p_msg);
-            free(p_msg);
+            MEM_FREE(p_msg);
         }
 #endif
     }
@@ -1402,7 +1469,7 @@ int LiveObjectsClient_PushStatus(int handle)
                 return 0;
             }
             LOTRACE_ERR("LiveObjectsClient_PushStatus: ERROR to put in queue - MEM_FREE %p x%x", p_msg, *p_msg);
-            free(p_msg);
+            MEM_FREE(p_msg);
         }
 #endif
     }
@@ -1436,7 +1503,7 @@ int LiveObjectsClient_PushData(int data_hdl)
                 return 0;
             }
             LOTRACE_ERR("LiveObjectsClient_PushData: ERROR to put in queue - MEM_FREE %p x%x", p_msg, *p_msg);
-            free(p_msg);
+            MEM_FREE(p_msg);
         }
 #endif
     }
@@ -1467,7 +1534,7 @@ int LiveObjectsClient_PushCfgParams(void)
                 return 0;
             }
             LOTRACE_ERR("LiveObjectsClient_PushData: ERROR to put in queue - MEM_FREE %p x%x", p_msg, *p_msg);
-            free(p_msg);
+            MEM_FREE(p_msg);
         }
 #endif
     }
@@ -1495,7 +1562,7 @@ int LiveObjectsClient_CommandResponse(int32_t cid, const LiveObjectsD_Data_t* da
                 return 0;
             }
             LOTRACE_ERR("LiveObjectsClient_CommandResponse: ERROR to put in queue - MEM_FREE %p x%x", p_msg, *p_msg);
-            free(p_msg);
+            MEM_FREE(p_msg);
         }
     }
 #endif
@@ -1550,8 +1617,11 @@ int LiveObjectsClient_Cycle( int timeout_ms )
     int ret;
 
     if (!_LOClient_state_connected){
+        LOTRACE_INF("LiveObjectsClient_Cycle (tms=%d): ERROR - Not connected !!!.", timeout_ms);
         return -1;
     }
+
+    LOTRACE_DBG("LiveObjectsClient_Cycle (tms=%d) ...", timeout_ms);
 
     //  -- Pending user messages ? (command responses, ...)
     LOCC_processPendingMesssage();
@@ -1645,7 +1715,7 @@ void LiveObjectsClient_Run(LiveObjectsD_CallbackState_t callback)
             if (ret == 0) {
                 break;
             }
-            wait_ms(5000);
+            WAIT_MS(5000);
         }
 
         if  ((_LOClient_state_run > 0) && (_LOClient_state_connected)) {
@@ -1712,7 +1782,7 @@ void LiveObjectsClient_Run(LiveObjectsD_CallbackState_t callback)
         }
         if (callback) callback(CSTATE_DISCONNECTED);
         LOTRACE_WARN("WAIT 5 seconds ...");
-        wait_ms(5000);
+        WAIT_MS(5000);
     }
 
 
@@ -1743,7 +1813,7 @@ int LiveObjectsClient_Publish(
     char* p_msg;
     short tlen = strlen(topicName);
     int len = 1 + 2 + tlen + 1 + strlen(payload_data) + 2;
-    p_msg = (char*) malloc(len);
+    p_msg = (char*) MEM_ALLOC(len);
     if (p_msg) {
         char *pc = p_msg;
         *pc++ = MTYPE_PUB_USR_MSG;     // 1- Set the message type
@@ -1758,7 +1828,7 @@ int LiveObjectsClient_Publish(
             return 0;
         }
         LOTRACE_ERR("LiveObjectsClient_Publish: ERROR to enqueue msg -> MEM_FREE msg %p x%x", p_msg, *p_msg);
-        free(p_msg);
+        MEM_FREE(p_msg);
     }
     else  LOTRACE_ERR("LiveObjectsClient_Publish: MALLOC ERROR");
     return -1;

@@ -13,3 +13,8 @@
 # And for MQTTPacket:
 #   a template header file 'StackTrace.h' to plug the MQTT trace on MQTTLog.c
 #
+
+# Change made by OAB in MQTTClient.c 
+#  - In function MQTTSubscribe(), use an intermediate qos variable defined as integer 
+#    to fix an issue with Arduino compiler (enum pointer casted as inetger pointer)!
+

@@ -22,6 +22,9 @@
 #include "liveobjects-sys/loc_trace.h"
 #include "liveobjects-sys/LiveObjectsClient_Platform.h"
 
+#if (LOC_MQTT_DUMP_MSG & 0x02)
+void LOCC_mqtt_dump_msg(const unsigned char* p_buf);
+#endif
 
 #if !LOC_FEATURE_MBEDTLS
 
@@ -54,7 +57,7 @@
 //#define MBEDTLS_TIMER
 
 #ifdef  MBEDTLS_TIMER
-#include "paho-mqttclient-c/timer_interface.h"
+#include "paho-mqttclient-embedded-c/timer_interface.h"
 #endif
 
 #endif /* LOC_FEATURE_MBEDTLS */
@@ -104,7 +107,18 @@ static void netw_mbedtls_err(unsigned int ret, int line, const char* fonc)
 #if defined(MBEDTLS_DEBUG_C) && (NETW_MBEDTLS_DBG > 0)
 void netw_mbedtls_debug(void *ctx, int level, const char *file, int line, const char *msg)
 {
+#ifdef ARDUINO
+    const char* name = strrchr(file, '\\');
+    if ((name) && (*name == '\\')) name++;
+    else {
+        name = strrchr(file, '/');
+        if ((name) && (*name == '/')) name++;
+        else name = file;
+    }
+    LOTRACE_INF("%d:%s:%d: %s", level, name, line, msg);
+#else
     LOTRACE_INF("%d:%s:%d: %s", level, file, line, msg);
+#endif
 }
 #endif
 
@@ -162,7 +176,7 @@ int f_timing_get_delay( void *data  )
 //
 void netw_disconnect(Network *pNetwork, int mode)
 {
-    if (f_netw_sock_isOpen(pNetwork->sock_hdl)) {
+    if (f_netw_sock_isOpen(pNetwork)) {
 #if LOC_FEATURE_MBEDTLS
         if (_netw_tls_run) {
             int ret;
@@ -177,7 +191,7 @@ void netw_disconnect(Network *pNetwork, int mode)
             mbedtls_ssl_session_reset(&_netw_ssl);
         }
 #endif
-        f_netw_sock_close(pNetwork->sock_hdl);
+        f_netw_sock_close(pNetwork);
     }
     LOTRACE_INF("netw_disconnect: RESET");
 #if LOC_FEATURE_MBEDTLS
@@ -190,7 +204,7 @@ void netw_disconnect(Network *pNetwork, int mode)
 unsigned char netw_isLost(Network *pNetwork)
 {
     if (pNetwork)  {
-        return f_netw_sock_isLost( pNetwork->sock_hdl );
+        return f_netw_sock_isLost( pNetwork );
     }
     return 0;
 }
@@ -200,7 +214,11 @@ unsigned char netw_isLost(Network *pNetwork)
 int netw_mqtt_write(Network *pNetwork, unsigned char *pMsg, int len, int timeout_ms)
 {
     int written = 0;
-    LOTRACE_DBG("netw_mqtt_write(%p/%p, len=%d,timeout_ms=%d, tsl=%d) ...", pNetwork, pNetwork->sock_hdl, len, timeout_ms, _netw_tls_enabled);
+    LOTRACE_DBG("netw_mqtt_write(%p/%p, len=%d,timeout_ms=%d, tsl=%d) ...", pNetwork, pNetwork->my_socket, len, timeout_ms, _netw_tls_enabled);
+
+#if (LOC_MQTT_DUMP_MSG & 0x02)
+    LOCC_mqtt_dump_msg(pMsg);
+#endif
 
     if (_netw_tls_enabled) {
 #if LOC_FEATURE_MBEDTLS
@@ -221,7 +239,7 @@ int netw_mqtt_write(Network *pNetwork, unsigned char *pMsg, int len, int timeout
 #endif
     }
     else {
-    	written = f_netw_sock_send(pNetwork->sock_hdl, pMsg, len);
+        written = f_netw_sock_send(pNetwork, pMsg, len);
         if(written < 0){
             LOTRACE_ERR("netw_mqtt_write(len=%d,timeout_ms=%d) ERROR %d", len, timeout_ms, written);
             return written;
@@ -238,7 +256,7 @@ int netw_mqtt_read(Network *pNetwork, unsigned char *pMsg, int len, int timeout_
 {
     int ret = -1;
 
-    //LOTRACE_DBG_VERBOSE("netw_mqtt_read(%p/%p, len=%d,timeout_ms=%d, tsl=%d) ...",  pNetwork, pNetwork->sock_hdl, len, timeout_ms, _netw_tls_enabled);
+    //LOTRACE_DBG_VERBOSE("netw_mqtt_read(%p/%p, len=%d,timeout_ms=%d, tsl=%d) ...",  pNetwork, pNetwork->my_socket, len, timeout_ms, _netw_tls_enabled);
 
     if (_netw_tls_enabled) {
 #if LOC_FEATURE_MBEDTLS
@@ -255,13 +273,16 @@ int netw_mqtt_read(Network *pNetwork, unsigned char *pMsg, int len, int timeout_
             ret = mbedtls_ssl_read(&_netw_ssl, pMsg, len);
             if (ret > 0) {
                 rxLen += ret;
-            } else if (ret != MBEDTLS_ERR_SSL_WANT_READ) {
-                LOTRACE_DBG("netw_mqtt_read(len=%d,timeout_ms=%d) - ret=-%X",  len, timeout_ms, ret);
-                LOTRACE_MBEDTLS_ERR(ret, "mbedtls_ssl_read");
+            } else if (ret == MBEDTLS_ERR_SSL_WANT_READ) {
+                LOTRACE_DBG_VERBOSE("netw_mqtt_read(len=%d,timeout_ms=%d) - ret=x%X = MBEDTLS_ERR_SSL_WANT_READ",  len, timeout_ms, ret);
+                isErrorFlag = true;
+            } else if (ret == MBEDTLS_ERR_SSL_TIMEOUT) {
+                LOTRACE_DBG_VERBOSE("netw_mqtt_read(len=%d,timeout_ms=%d) - ret=x%X = MBEDTLS_ERR_SSL_TIMEOUT",  len, timeout_ms, ret);
                 isErrorFlag = true;
             }
             else {
-                LOTRACE_DBG_VERBOSE("netw_mqtt_read(len=%d,timeout_ms=%d) - ret=-%X MBEDTLS_ERR_SSL_WANT_READ",  len, timeout_ms, ret);
+                LOTRACE_DBG("netw_mqtt_read(len=%d,timeout_ms=%d) - ret= x%X",  len, timeout_ms, ret);
+                LOTRACE_MBEDTLS_ERR(ret, "mbedtls_ssl_read");
                 isErrorFlag = true;
             }
             if (rxLen >= len) {
@@ -275,10 +296,10 @@ int netw_mqtt_read(Network *pNetwork, unsigned char *pMsg, int len, int timeout_
 #endif
     }
     else {
-        ret= f_netw_sock_recv_timeout(pNetwork->sock_hdl, pMsg, len, timeout_ms);
+        ret= f_netw_sock_recv_timeout(pNetwork, pMsg, len, timeout_ms);
         if(ret < 0){
-             if (ret != MBEDTLS_ERR_SSL_WANT_READ)
-                LOTRACE_ERR("f_netw_sock_recv_timeout(len=%d) -> ERROR %d",   len, ret);
+             if ((ret != MBEDTLS_ERR_SSL_WANT_READ) && (ret != MBEDTLS_ERR_SSL_TIMEOUT))
+                LOTRACE_ERR("f_netw_sock_recv_timeout(len=%d) -> ERROR %d x%x", len, ret, ret);
              return ret;
          }
     }
@@ -313,18 +334,18 @@ static int myCertVerify(void *data, mbedtls_x509_crt *crt, int depth, uint32_t *
     char buf[1024];
     ((void) data);
 
-    LOTRACE_INF("===> Verify requested for (Depth %d) (ssl_flags(x%p)=0X%X):",
+    LOTRACE_DBG_VERBOSE("===> Verify requested for (Depth %d) (ssl_flags(x%p)=0X%X):",
             depth, ssl_flags, (ssl_flags) ? *ssl_flags  : 0);
 
     mbedtls_x509_crt_info(buf, sizeof(buf) - 1, "", crt);
 
-    LOTRACE_INF("%s", buf);
+    LOTRACE_DBG_VERBOSE("%s", buf);
 
     if ((*ssl_flags) == 0) {
         LOTRACE_INF(" -> No verification issue for this certificate");
     } else {
         mbedtls_x509_crt_verify_info(buf, sizeof (buf), "  ! ", *ssl_flags);
-        LOTRACE_INF("  -> (ssl_flags=0X%X):\n%s", *ssl_flags, buf);
+        LOTRACE_DBG_VERBOSE("  -> (ssl_flags=0X%X):\n%s", *ssl_flags, buf);
         if (*ssl_flags & 0x010000) {
             // ! The certificate is signed with an unacceptable key (eg bad curve, RSA too short).
             *ssl_flags &= ~0x010000;
@@ -395,7 +416,7 @@ int netw_init(Network *pNetwork,  void* net_iface_handler)
     LOTRACE_DBG("netw_init: OK");
 
     if (pNetwork) {
-        pNetwork->sock_hdl = NULL;
+        pNetwork->my_socket = SOCKETHANDLE_NULL;
         pNetwork->mqttread = netw_mqtt_read;
         pNetwork->mqttwrite = netw_mqtt_write;
         //pNetwork->disconnect = netw_mqtt_disconnect;
@@ -541,13 +562,13 @@ int netw_connect(Network* pNetwork, LiveObjectsNetConnectParams_t* params)
     LOTRACE_INF("Connecting to server %s:%d tmo=%u ...",
             params->RemoteHostAddress , params->RemoteHostPort, params->TimeoutMs);
 
-    if (f_netw_sock_isOpen(pNetwork->sock_hdl)) {
+    if (f_netw_sock_isOpen(pNetwork)) {
         netw_disconnect(pNetwork, 0);
     }
 #if LOC_FEATURE_MBEDTLS
     _netw_tls_run = 0;
 #endif
-    ret = f_netw_sock_connect(&pNetwork->sock_hdl, params->RemoteHostAddress, params->RemoteHostPort, params->TimeoutMs);
+    ret = f_netw_sock_connect(pNetwork, params->RemoteHostAddress, params->RemoteHostPort, params->TimeoutMs);
     if (ret) {
         LOTRACE_ERR("Failed to create TCP socket");
         return -1;
@@ -583,8 +604,8 @@ int netw_connect(Network* pNetwork, LiveObjectsNetConnectParams_t* params)
             return ret;
         }
 
-        mbedtls_ssl_set_bio( &_netw_ssl, pNetwork->sock_hdl,
-        		f_netw_sock_send, f_netw_sock_recv, f_netw_sock_recv_timeout );
+        mbedtls_ssl_set_bio( &_netw_ssl, (void*)pNetwork,
+                f_netw_sock_send, f_netw_sock_recv, f_netw_sock_recv_timeout );
 
 #ifdef MBEDTLS_TIMER
         LOTRACE_INF("Set timer callbacks ...");
@@ -628,7 +649,7 @@ int netw_connect(Network* pNetwork, LiveObjectsNetConnectParams_t* params)
     }
 #endif // LOC_FEATURE_MBEDTLS
 
-    f_netw_sock_setup(pNetwork->sock_hdl);
+    f_netw_sock_setup(pNetwork);
 
     return ret;
 }
