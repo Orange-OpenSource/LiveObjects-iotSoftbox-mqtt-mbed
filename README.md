@@ -16,5 +16,5 @@ Examples using this iotsoftbox-mqtt library for ARM mbed OS 5 running on FRDM-K6
 
 
 Documents:
-* [User manual](./docsliveobjects_starterkitv1.1.pdf)
+* [User manual](./docs/liveobjects_starterkit_mbedOS_v1.2.pdf)
 * [DOCS](./docs/index.md)
