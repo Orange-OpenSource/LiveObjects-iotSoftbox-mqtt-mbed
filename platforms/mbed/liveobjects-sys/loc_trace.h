@@ -20,17 +20,20 @@
 
 #include "mbed-trace/mbed_trace.h"
 
-#define LOTRACE_INIT(...)           ((void)0)
+#define LOTRACE_INIT(...)            ((void)0)
 #define LOTRACE_LEVEL(...)           ((void)0)
 
 #define LOTRACE_ERR                   tr_err
 #define LOTRACE_WARN                  tr_warn
+#define LOTRACE_NOTICE                tr_warn
 #define LOTRACE_INF                   tr_info
 #define LOTRACE_DBG                   tr_debug
+#define LOTRACE_DBG1                  tr_debug
+#define LOTRACE_DBG2                  tr_debug
 
 #define LOTRACE_DBG_VERBOSE(...)      ((void)0)
 //#define LOTRACE_DBG_VERBOSE           tr_info
 
-#define LOTRACE_PRINTF                 printf
+#define LOTRACE_PRINTF                printf
 
 #endif /* __loc_trace_H_ */

@@ -17,6 +17,8 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include "platform/wait_api.h"
+
 #ifndef PRIu32
 #define PRIu32    "u"
 #endif
