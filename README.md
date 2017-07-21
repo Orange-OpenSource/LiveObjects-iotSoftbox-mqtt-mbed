@@ -1,6 +1,9 @@
 LiveObject IoT Client - IoTSoftBox-MQTT
 =======================================
 
+Please refers to the [Changelog](ChangeLog.md) to check the latest change and improvement.
+
+---
 This repository contains Datavenue Live Objects IoT Library (used to connect devices to Live Objects platform from our partners).
 
 
@@ -11,10 +14,9 @@ And mainly the [Device mode](https://liveobjects.orange-business.com/doc/html/lo
 
 Examples using this iotsoftbox-mqtt library for ARM mbed OS 5 running on FRDM-K64F board are available here:
 
-* github: https://github.com/Orange-OpenSource/LiveObjects-iotSoftbox-mqtt-mbed-examples 
+* github: https://github.com/Orange-OpenSource/LiveObjects-iotSoftbox-mqtt-mbed-examples
 * developer.mbed.org: https://developer.mbed.org/teams/Orange_IoT/
 
 
 Documents:
-* [User manual](./docs/liveobjects_starterkit_mbedOS_v1.2.pdfliveobjects_starterkit_mbedOS_v1.2.pdf)
-* [DOCS](./docs/index.md)
+* [User manual](./docs/liveobjects_starterkit_mbedOS_v1.2.pdf)
